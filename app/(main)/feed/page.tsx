@@ -162,7 +162,7 @@ export default function FeedPage() {
     const unsub = subscribeFeedPosts(async (fetchedPosts) => {
       setPosts(fetchedPosts);
       const newAuthors: Record<string, User> = {};
-      const uids = [...new Set(fetchedPosts.map((p) => p.uid))];
+      const uids = Array.from(new Set(fetchedPosts.map((p) => p.uid)));
       await Promise.all(
         uids.map(async (uid) => {
           const u = await getUserById(uid);
