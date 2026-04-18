@@ -1,4 +1,3 @@
-// hooks/useUnreadMessages.ts
 "use client";
 import { useEffect, useState } from "react";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
@@ -10,7 +9,6 @@ export function useUnreadMessages(uid: string | undefined) {
   useEffect(() => {
     if (!uid) return;
 
-    // Listen to all conversations for this user
     const q = query(
       collection(db, "conversations"),
       where("participants", "array-contains", uid)
@@ -18,33 +16,27 @@ export function useUnreadMessages(uid: string | undefined) {
 
     const unsub = onSnapshot(q, async (snapshot) => {
       let total = 0;
-
-      await Promise.all(
-        snapshot.docs.map(async (convDoc) => {
-          const convId = convDoc.id;
-          const messagesRef = collection(
-            db,
-            "conversations",
-            convId,
-            "messages"
-          );
-
-          // Count unread messages not sent by current user
-          const unreadQuery = query(
-            messagesRef,
-            where("read", "==", false),
-            where("senderId", "!=", uid)
-          );
-
-          return new Promise<void>((resolve) => {
+      const counts = await Promise.all(
+        snapshot.docs.map((convDoc) => {
+          return new Promise<number>((resolve) => {
+            const messagesRef = collection(
+              db,
+              "conversations",
+              convDoc.id,
+              "messages"
+            );
+            const unreadQuery = query(
+              messagesRef,
+              where("read", "==", false),
+              where("senderId", "!=", uid)
+            );
             onSnapshot(unreadQuery, (msgSnap) => {
-              total += msgSnap.size;
-              resolve();
+              resolve(msgSnap.size);
             });
           });
         })
       );
-
+      total = counts.reduce((a, b) => a + b, 0);
       setUnreadCount(total);
     });
 
