@@ -2,9 +2,10 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { logoutUser } from "@/lib/auth";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import {
   HomeIcon,
   ChatBubbleLeftRightIcon,
@@ -22,11 +23,53 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const unreadCount = useUnreadMessages(user?.uid);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     if (!loading && !user) router.push("/login");
   }, [user, loading, router]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const q = query(
+      collection(db, "conversations"),
+      where("participants", "array-contains", user.uid)
+    );
+
+    const unsubConversations = onSnapshot(q, (snapshot) => {
+      if (snapshot.empty) {
+        setUnreadCount(0);
+        return;
+      }
+
+      let total = 0;
+      const unsubscribers: (() => void)[] = [];
+
+      snapshot.docs.forEach((convDoc) => {
+        const messagesRef = collection(
+          db,
+          "conversations",
+          convDoc.id,
+          "messages"
+        );
+        const unreadQuery = query(
+          messagesRef,
+          where("read", "==", false),
+          where("senderId", "!=", user.uid)
+        );
+        const unsubMsg = onSnapshot(unreadQuery, (msgSnap) => {
+          total = msgSnap.size;
+          setUnreadCount(total);
+        });
+        unsubscribers.push(unsubMsg);
+      });
+
+      return () => unsubscribers.forEach((u) => u());
+    });
+
+    return () => unsubConversations();
+  }, [user]);
 
   if (loading || !user) {
     return (
@@ -50,7 +93,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="min-h-screen bg-neutral-950 flex">
 
-      {/* ── Desktop Sidebar ── */}
+      {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 shrink-0 border-r border-neutral-800/60 flex-col px-4 py-6 sticky top-0 h-screen">
         <Link href="/feed" className="text-2xl font-bold text-white tracking-tight mb-10 px-2">
           vibe.
@@ -100,7 +143,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         </div>
       </aside>
 
-      {/* ── Main Content ── */}
+      {/* Main Content */}
       <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
         {/* Mobile top bar */}
         <div className="md:hidden flex items-center justify-between px-4 py-4 border-b border-neutral-800 sticky top-0 bg-neutral-950 z-10">
@@ -118,7 +161,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         {children}
       </main>
 
-      {/* ── Mobile Bottom Navigation ── */}
+      {/* Mobile Bottom Navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-neutral-950 border-t border-neutral-800 flex items-center justify-around px-2 py-3 z-20">
         {navItems.map(({ href, label, icon: Icon, activeIcon: ActiveIcon, badge }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
