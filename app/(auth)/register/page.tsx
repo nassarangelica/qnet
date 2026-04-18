@@ -1,9 +1,9 @@
-// app/(auth)/register/page.tsx
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { registerUser } from "@/lib/auth";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function RegisterPage() {
   const [displayName, setDisplayName] = useState("");
@@ -13,6 +13,13 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.replace("/feed");
+    }
+  }, [user, authLoading, router]);
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
@@ -20,12 +27,20 @@ export default function RegisterPage() {
     setError("");
     try {
       await registerUser(email, password, displayName, username.toLowerCase());
-      router.push("/feed");
+      router.replace("/feed");
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Registration failed");
     } finally {
       setLoading(false);
     }
+  }
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
 
   return (
@@ -43,7 +58,9 @@ export default function RegisterPage() {
             </div>
           )}
           <div>
-            <label className="block text-xs text-neutral-400 mb-1.5 uppercase tracking-wide">Display Name</label>
+            <label className="block text-xs text-neutral-400 mb-1.5 uppercase tracking-wide">
+              Display Name
+            </label>
             <input
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
@@ -53,7 +70,9 @@ export default function RegisterPage() {
             />
           </div>
           <div>
-            <label className="block text-xs text-neutral-400 mb-1.5 uppercase tracking-wide">Username</label>
+            <label className="block text-xs text-neutral-400 mb-1.5 uppercase tracking-wide">
+              Username
+            </label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 text-sm">@</span>
               <input
@@ -66,7 +85,9 @@ export default function RegisterPage() {
             </div>
           </div>
           <div>
-            <label className="block text-xs text-neutral-400 mb-1.5 uppercase tracking-wide">Email</label>
+            <label className="block text-xs text-neutral-400 mb-1.5 uppercase tracking-wide">
+              Email
+            </label>
             <input
               type="email"
               value={email}
@@ -77,7 +98,9 @@ export default function RegisterPage() {
             />
           </div>
           <div>
-            <label className="block text-xs text-neutral-400 mb-1.5 uppercase tracking-wide">Password</label>
+            <label className="block text-xs text-neutral-400 mb-1.5 uppercase tracking-wide">
+              Password
+            </label>
             <input
               type="password"
               value={password}

@@ -2,10 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Sora } from "next/font/google";
 import "./globals.css";
 
-const sora = Sora({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-});
+const sora = Sora({ subsets: ["latin"], weight: ["300", "400", "500", "600", "700"] });
 
 export const metadata: Metadata = {
   title: "Vibe — Social",
@@ -26,36 +23,11 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <head>
-        <link rel="manifest" href="/manifest.json" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="Vibe" />
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-      </head>
+    <html lang="en" data-scroll-behavior="smooth">
       <body className={`${sora.className} bg-neutral-950 text-white antialiased`}>
         {children}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js')
-                    .then(function(reg) { console.log('SW registered'); })
-                    .catch(function(err) { console.log('SW failed:', err); });
-                });
-              }
-            `,
-          }}
-        />
       </body>
     </html>
   );

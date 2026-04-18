@@ -1,9 +1,9 @@
-// app/(auth)/login/page.tsx
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { loginUser } from "@/lib/auth";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -11,6 +11,14 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+
+  // If already logged in, redirect to feed
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.replace("/feed");
+    }
+  }, [user, authLoading, router]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -18,18 +26,25 @@ export default function LoginPage() {
     setError("");
     try {
       await loginUser(email, password);
-      router.push("/feed");
+      router.replace("/feed");
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Invalid email or password");
     } finally {
       setLoading(false);
     }
   }
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-neutral-950 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        {/* Logo */}
         <div className="mb-10 text-center">
           <h1 className="text-4xl font-bold tracking-tight text-white">vibe.</h1>
           <p className="text-neutral-400 mt-2 text-sm">Sign in to your account</p>
@@ -42,7 +57,9 @@ export default function LoginPage() {
             </div>
           )}
           <div>
-            <label className="block text-xs text-neutral-400 mb-1.5 tracking-wide uppercase">Email</label>
+            <label className="block text-xs text-neutral-400 mb-1.5 tracking-wide uppercase">
+              Email
+            </label>
             <input
               type="email"
               value={email}
@@ -53,7 +70,9 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <label className="block text-xs text-neutral-400 mb-1.5 tracking-wide uppercase">Password</label>
+            <label className="block text-xs text-neutral-400 mb-1.5 tracking-wide uppercase">
+              Password
+            </label>
             <input
               type="password"
               value={password}

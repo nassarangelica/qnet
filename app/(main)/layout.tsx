@@ -26,52 +26,36 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    if (!loading && !user) router.push("/login");
+    if (!loading && !user) {
+      router.replace("/login");
+    }
   }, [user, loading, router]);
 
   useEffect(() => {
     if (!user) return;
-
     const q = query(
       collection(db, "conversations"),
       where("participants", "array-contains", user.uid)
     );
-
     const unsubConversations = onSnapshot(q, (snapshot) => {
-      if (snapshot.empty) {
-        setUnreadCount(0);
-        return;
-      }
-
-      let total = 0;
+      if (snapshot.empty) { setUnreadCount(0); return; }
       const unsubscribers: (() => void)[] = [];
-
+      let counts: Record<string, number> = {};
       snapshot.docs.forEach((convDoc) => {
-        const messagesRef = collection(
-          db,
-          "conversations",
-          convDoc.id,
-          "messages"
-        );
-        const unreadQuery = query(
-          messagesRef,
-          where("read", "==", false),
-          where("senderId", "!=", user.uid)
-        );
+        const messagesRef = collection(db, "conversations", convDoc.id, "messages");
+        const unreadQuery = query(messagesRef, where("read", "==", false), where("senderId", "!=", user.uid));
         const unsubMsg = onSnapshot(unreadQuery, (msgSnap) => {
-          total = msgSnap.size;
-          setUnreadCount(total);
+          counts[convDoc.id] = msgSnap.size;
+          setUnreadCount(Object.values(counts).reduce((a, b) => a + b, 0));
         });
         unsubscribers.push(unsubMsg);
       });
-
       return () => unsubscribers.forEach((u) => u());
     });
-
     return () => unsubConversations();
   }, [user]);
 
-  if (loading || !user) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
@@ -79,9 +63,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     );
   }
 
+  if (!user) return null;
+
   async function handleLogout() {
     await logoutUser();
-    router.push("/login");
+    router.replace("/login");
   }
 
   const navItems = [
@@ -92,60 +78,42 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <div className="min-h-screen bg-neutral-950 flex">
-
-      {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 shrink-0 border-r border-neutral-800/60 flex-col px-4 py-6 sticky top-0 h-screen">
         <Link href="/feed" className="text-2xl font-bold text-white tracking-tight mb-10 px-2">
           vibe.
         </Link>
-
         <nav className="flex-1 space-y-1">
           {navItems.map(({ href, label, icon: Icon, activeIcon: ActiveIcon, badge }) => {
             const active = pathname === href || pathname.startsWith(href + "/");
             const I = active ? ActiveIcon : Icon;
             return (
-              <Link
-                key={href}
-                href={href}
+              <Link key={href} href={href}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                  active
-                    ? "bg-violet-600/20 text-violet-300"
-                    : "text-neutral-400 hover:text-white hover:bg-neutral-800/50"
+                  active ? "bg-violet-600/20 text-violet-300" : "text-neutral-400 hover:text-white hover:bg-neutral-800/50"
                 }`}
               >
                 <div className="relative">
                   <I className="w-5 h-5" />
-                  {badge > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 w-2.5 h-2.5 rounded-full ring-2 ring-neutral-950" />
-                  )}
+                  {badge > 0 && <span className="absolute -top-1 -right-1 bg-red-500 w-2.5 h-2.5 rounded-full ring-2 ring-neutral-950" />}
                 </div>
                 {label}
               </Link>
             );
           })}
         </nav>
-
         <div className="mt-auto space-y-1">
-          <Link
-            href="/profile/edit"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-neutral-400 hover:text-white hover:bg-neutral-800/50 transition-all"
-          >
+          <Link href="/profile/edit" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-neutral-400 hover:text-white hover:bg-neutral-800/50 transition-all">
             <PencilSquareIcon className="w-5 h-5" />
             Edit Profile
           </Link>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-neutral-400 hover:text-red-400 hover:bg-red-500/10 transition-all w-full"
-          >
+          <button onClick={handleLogout} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-neutral-400 hover:text-red-400 hover:bg-red-500/10 transition-all w-full">
             <ArrowLeftOnRectangleIcon className="w-5 h-5" />
             Sign Out
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
-        {/* Mobile top bar */}
         <div className="md:hidden flex items-center justify-between px-4 py-4 border-b border-neutral-800 sticky top-0 bg-neutral-950 z-10">
           <span className="text-xl font-bold text-white tracking-tight">vibe.</span>
           <div className="flex items-center gap-3">
@@ -157,35 +125,28 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             </button>
           </div>
         </div>
-
         {children}
       </main>
 
-      {/* Mobile Bottom Navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-neutral-950 border-t border-neutral-800 flex items-center justify-around px-2 py-3 z-20">
         {navItems.map(({ href, label, icon: Icon, activeIcon: ActiveIcon, badge }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           const I = active ? ActiveIcon : Icon;
           return (
-            <Link
-              key={href}
-              href={href}
+            <Link key={href} href={href}
               className={`flex flex-col items-center gap-1 px-4 py-1 rounded-xl transition-all ${
                 active ? "text-violet-400" : "text-neutral-500 hover:text-white"
               }`}
             >
               <div className="relative">
                 <I className="w-6 h-6" />
-                {badge > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 w-2.5 h-2.5 rounded-full ring-2 ring-neutral-950" />
-                )}
+                {badge > 0 && <span className="absolute -top-1 -right-1 bg-red-500 w-2.5 h-2.5 rounded-full ring-2 ring-neutral-950" />}
               </div>
               <span className="text-xs font-medium">{label}</span>
             </Link>
           );
         })}
       </nav>
-
     </div>
   );
 }
