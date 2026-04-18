@@ -5,7 +5,7 @@ import "./globals.css";
 const sora = Sora({ subsets: ["latin"], weight: ["300", "400", "500", "600", "700"] });
 
 export const metadata: Metadata = {
-  title: "Vibe — Social",
+  title: "safe.",
   description: "Connect, post, and chat with people.",
   manifest: "/manifest.json",
   appleWebApp: {
