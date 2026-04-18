@@ -5,8 +5,15 @@ import { subscribeFeedPosts, createPost, toggleLike } from "@/lib/posts";
 import { addComment, subscribeComments, deleteComment } from "@/lib/comments";
 import { getUserById } from "@/lib/users";
 import { Post, User, Comment } from "@/types";
+import Avatar from "@/components/Avatar";
 import Link from "next/link";
-import { HeartIcon, ChatBubbleOvalLeftIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import {
+  HeartIcon,
+  ChatBubbleOvalLeftIcon,
+  TrashIcon,
+  XMarkIcon,
+  PaperAirplaneIcon,
+} from "@heroicons/react/24/outline";
 import { HeartIcon as HeartSolid } from "@heroicons/react/24/solid";
 
 export const dynamic = "force-dynamic";
@@ -20,19 +27,6 @@ function formatDate(date: Date) {
     minute: "2-digit",
     hour12: true,
   });
-}
-
-function Avatar({ user, size = "sm" }: { user?: User; size?: "sm" | "lg" }) {
-  const s = size === "lg" ? "w-10 h-10 text-base" : "w-9 h-9 text-sm";
-  return (
-    <div className={`${s} rounded-full bg-violet-600 flex items-center justify-center font-bold overflow-hidden shrink-0`}>
-      {user?.photoURL ? (
-        <img src={user.photoURL} alt="" className="w-full h-full object-cover" />
-      ) : (
-        user?.displayName?.[0]?.toUpperCase() || "?"
-      )}
-    </div>
-  );
 }
 
 function CommentSection({
@@ -52,7 +46,6 @@ function CommentSection({
   useEffect(() => {
     const unsub = subscribeComments(post.id, async (fetchedComments) => {
       setComments(fetchedComments);
-      // Fetch comment authors
       const newAuthors: Record<string, User> = { ...commentAuthors };
       await Promise.all(
         fetchedComments.map(async (c) => {
@@ -62,7 +55,7 @@ function CommentSection({
           }
         })
       );
-      setCommentAuthors(newAuthors);
+      setCommentAuthors({ ...newAuthors });
     });
     return () => unsub();
   }, [post.id]);
@@ -90,23 +83,30 @@ function CommentSection({
   }
 
   return (
-    <div className="mt-4 border-t border-neutral-800 pt-4 space-y-3">
-      {/* Comment list */}
+    <div className="mt-3 border-t border-neutral-800 pt-3 space-y-3">
+      {comments.length === 0 && (
+        <p className="text-xs text-neutral-600 text-center py-2">
+          No comments yet. Be the first!
+        </p>
+      )}
       {comments.map((c) => {
         const author = commentAuthors[c.uid];
         const isOwn = currentUser?.uid === c.uid;
         return (
-          <div key={c.id} className="flex gap-2.5">
+          <div key={c.id} className="flex gap-2">
             <Link href={`/profile/${c.uid}`}>
-              <Avatar user={author} />
+              <Avatar user={author} size="sm" />
             </Link>
-            <div className="flex-1 bg-neutral-800/50 rounded-xl px-3 py-2">
-              <div className="flex items-center justify-between">
-                <Link href={`/profile/${c.uid}`} className="text-xs font-semibold text-white hover:text-violet-300 transition">
+            <div className="flex-1 bg-neutral-800/60 rounded-xl px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <Link
+                  href={`/profile/${c.uid}`}
+                  className="text-xs font-semibold text-white hover:text-violet-300 transition truncate"
+                >
                   {author?.displayName || "..."}
                 </Link>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-neutral-600">
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs text-neutral-600 hidden sm:block">
                     {c.createdAt ? formatDate(c.createdAt) : ""}
                   </span>
                   {isOwn && (
@@ -119,28 +119,30 @@ function CommentSection({
                   )}
                 </div>
               </div>
-              <p className="text-sm text-neutral-300 mt-0.5">{c.content}</p>
+              <p className="text-sm text-neutral-300 mt-0.5 break-words">
+                {c.content}
+              </p>
             </div>
           </div>
         );
       })}
 
       {/* Add comment */}
-      <form onSubmit={handleSubmit} className="flex gap-2.5">
-        <Avatar user={authors[currentUser?.uid]} />
+      <form onSubmit={handleSubmit} className="flex gap-2 items-center">
+        <Avatar user={authors[currentUser?.uid]} size="sm" />
         <div className="flex-1 flex gap-2">
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Write a comment..."
-            className="flex-1 bg-neutral-800/50 border border-neutral-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500 transition"
+            className="flex-1 bg-neutral-800/60 border border-neutral-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500 transition min-w-0"
           />
           <button
             type="submit"
             disabled={!text.trim() || submitting}
-            className="bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white text-xs font-semibold px-3 py-2 rounded-xl transition"
+            className="bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white p-2 rounded-xl transition shrink-0"
           >
-            {submitting ? "..." : "Post"}
+            <PaperAirplaneIcon className="w-4 h-4" />
           </button>
         </div>
       </form>
@@ -159,17 +161,15 @@ export default function FeedPage() {
   useEffect(() => {
     const unsub = subscribeFeedPosts(async (fetchedPosts) => {
       setPosts(fetchedPosts);
-      const newAuthors: Record<string, User> = { ...authors };
-      const uids = Array.from(new Set(fetchedPosts.map((p) => p.uid)));
+      const newAuthors: Record<string, User> = {};
+      const uids = [...new Set(fetchedPosts.map((p) => p.uid))];
       await Promise.all(
         uids.map(async (uid) => {
-          if (!newAuthors[uid]) {
-            const u = await getUserById(uid);
-            if (u) newAuthors[uid] = u;
-          }
+          const u = await getUserById(uid);
+          if (u) newAuthors[uid] = u;
         })
       );
-      setAuthors(newAuthors);
+      setAuthors((prev) => ({ ...prev, ...newAuthors }));
     });
     return () => unsub();
   }, []);
@@ -193,12 +193,17 @@ export default function FeedPage() {
     await toggleLike(post.id, user.uid, post.likes.includes(user.uid));
   }
 
+  const currentUserProfile = user ? authors[user.uid] : null;
+
   return (
     <div className="max-w-xl mx-auto py-4 md:py-8 px-3 md:px-4">
       {/* Create post */}
-      <form onSubmit={handlePost} className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 mb-6">
+      <form
+        onSubmit={handlePost}
+        className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 mb-6"
+      >
         <div className="flex gap-3">
-          <Avatar user={authors[user?.uid || ""]} />
+          <Avatar user={currentUserProfile} size="md" />
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
@@ -207,10 +212,11 @@ export default function FeedPage() {
             className="flex-1 bg-transparent text-white text-sm placeholder:text-neutral-500 resize-none focus:outline-none"
           />
         </div>
-        <div className="flex justify-end mt-3 border-t border-neutral-800 pt-3">
+        <div className="flex justify-between items-center mt-3 border-t border-neutral-800 pt-3">
+          <span className="text-xs text-neutral-600">{content.length}/500</span>
           <button
             type="submit"
-            disabled={posting || !content.trim()}
+            disabled={posting || !content.trim() || content.length > 500}
             className="bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white text-sm font-semibold px-5 py-2 rounded-xl transition"
           >
             {posting ? "Posting..." : "Post"}
@@ -221,7 +227,11 @@ export default function FeedPage() {
       {/* Posts */}
       <div className="space-y-4">
         {posts.length === 0 && (
-          <p className="text-center text-neutral-500 text-sm py-10">No posts yet. Be the first to post!</p>
+          <div className="text-center py-16">
+            <p className="text-4xl mb-3">👋</p>
+            <p className="text-neutral-400 text-sm font-medium">No posts yet</p>
+            <p className="text-neutral-600 text-xs mt-1">Be the first to post!</p>
+          </div>
         )}
         {posts.map((post) => {
           const author = authors[post.uid];
@@ -229,52 +239,79 @@ export default function FeedPage() {
           const showComments = openComments === post.id;
 
           return (
-            <div key={post.id} className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4">
-              {/* Author */}
+            <div
+              key={post.id}
+              className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4"
+            >
               <div className="flex items-center gap-3 mb-3">
                 <Link href={`/profile/${post.uid}`}>
-                  <Avatar user={author} />
+                  <Avatar user={author} size="md" />
                 </Link>
-                <div className="flex-1">
-                  <Link href={`/profile/${post.uid}`} className="text-sm font-semibold text-white hover:text-violet-300 transition">
+                <div className="flex-1 min-w-0">
+                  <Link
+                    href={`/profile/${post.uid}`}
+                    className="text-sm font-semibold text-white hover:text-violet-300 transition block truncate"
+                  >
                     {author?.displayName || "Loading..."}
                   </Link>
-                  <p className="text-xs text-neutral-500">
-                    @{author?.username} · {post.createdAt ? formatDate(post.createdAt) : ""}
+                  <p className="text-xs text-neutral-500 truncate">
+                    @{author?.username} ·{" "}
+                    {post.createdAt ? formatDate(post.createdAt) : ""}
                   </p>
                 </div>
               </div>
 
-              {/* Content */}
-              <p className="text-sm text-neutral-200 whitespace-pre-wrap leading-relaxed">
+              <p className="text-sm text-neutral-200 whitespace-pre-wrap leading-relaxed break-words">
                 {post.content}
               </p>
 
               {post.imageURL && (
-                <img src={post.imageURL} alt="" className="mt-3 rounded-xl w-full object-cover max-h-80" />
+                <img
+                  src={post.imageURL}
+                  alt=""
+                  className="mt-3 rounded-xl w-full object-cover max-h-80"
+                />
               )}
 
-              {/* Actions */}
-              <div className="flex items-center gap-5 mt-4 text-neutral-500">
+              <div className="flex items-center gap-3 mt-4">
                 <button
                   onClick={() => handleLike(post)}
-                  className={`flex items-center gap-1.5 text-sm hover:text-red-400 transition ${liked ? "text-red-400" : ""}`}
+                  className={`flex items-center gap-1.5 text-sm transition px-3 py-1.5 rounded-xl ${
+                    liked
+                      ? "text-red-400 bg-red-500/10"
+                      : "text-neutral-500 hover:text-red-400 hover:bg-red-500/10"
+                  }`}
                 >
-                  {liked ? <HeartSolid className="w-5 h-5" /> : <HeartIcon className="w-5 h-5" />}
-                  {post.likes.length}
+                  {liked ? (
+                    <HeartSolid className="w-5 h-5" />
+                  ) : (
+                    <HeartIcon className="w-5 h-5" />
+                  )}
+                  <span>{post.likes.length}</span>
                 </button>
                 <button
                   onClick={() => setOpenComments(showComments ? null : post.id)}
-                  className={`flex items-center gap-1.5 text-sm hover:text-violet-400 transition ${showComments ? "text-violet-400" : ""}`}
+                  className={`flex items-center gap-1.5 text-sm transition px-3 py-1.5 rounded-xl ${
+                    showComments
+                      ? "text-violet-400 bg-violet-500/10"
+                      : "text-neutral-500 hover:text-violet-400 hover:bg-violet-500/10"
+                  }`}
                 >
-                  {showComments ? <XMarkIcon className="w-5 h-5" /> : <ChatBubbleOvalLeftIcon className="w-5 h-5" />}
-                  {post.commentsCount}
+                  {showComments ? (
+                    <XMarkIcon className="w-5 h-5" />
+                  ) : (
+                    <ChatBubbleOvalLeftIcon className="w-5 h-5" />
+                  )}
+                  <span>{post.commentsCount}</span>
                 </button>
               </div>
 
-              {/* Comments */}
               {showComments && (
-                <CommentSection post={post} currentUser={user} authors={authors} />
+                <CommentSection
+                  post={post}
+                  currentUser={user}
+                  authors={authors}
+                />
               )}
             </div>
           );

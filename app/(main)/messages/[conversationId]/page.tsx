@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { subscribeMessages, sendMessage, markMessagesAsRead } from "@/lib/messages";
 import { getUserById } from "@/lib/users";
 import { Message, User } from "@/types";
+import Avatar from "@/components/Avatar";
 import Link from "next/link";
 import { ArrowLeftIcon, PaperAirplaneIcon } from "@heroicons/react/24/outline";
 
@@ -25,21 +26,15 @@ export default function ChatPage() {
     if (!user || !conversationId) return;
     const uids = conversationId.split("_");
     const otherUid = uids.find((u) => u !== user.uid);
-    if (otherUid) {
-      getUserById(otherUid).then(setOtherUser);
-    }
+    if (otherUid) getUserById(otherUid).then(setOtherUser);
   }, [conversationId, user]);
 
   useEffect(() => {
     if (!conversationId || !user) return;
-
-    // Mark messages as read when opening conversation
     markMessagesAsRead(conversationId, user.uid);
-
     const unsub = subscribeMessages(conversationId, (msgs) => {
       setMessages(msgs);
       setLoading(false);
-      // Mark as read whenever new messages arrive
       markMessagesAsRead(conversationId, user.uid);
       setTimeout(() => {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -58,7 +53,6 @@ export default function ChatPage() {
       setText("");
     } catch (err: any) {
       setError("Failed to send. Please try again.");
-      console.error(err);
     } finally {
       setSending(false);
     }
@@ -80,13 +74,7 @@ export default function ChatPage() {
         </Link>
         {otherUser ? (
           <Link href={`/profile/${otherUser.uid}`} className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-violet-600 flex items-center justify-center text-sm font-bold overflow-hidden">
-              {otherUser.photoURL ? (
-                <img src={otherUser.photoURL} alt="" className="w-full h-full object-cover" />
-              ) : (
-                otherUser.displayName?.[0]?.toUpperCase()
-              )}
-            </div>
+            <Avatar user={otherUser} size="sm" />
             <div>
               <p className="text-sm font-semibold text-white">{otherUser.displayName}</p>
               <p className="text-xs text-neutral-500">@{otherUser.username}</p>
@@ -107,7 +95,6 @@ export default function ChatPage() {
             <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
           </div>
         )}
-
         {!loading && messages.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 gap-2">
             <p className="text-4xl">👋</p>
@@ -115,20 +102,18 @@ export default function ChatPage() {
             <p className="text-neutral-600 text-xs">Start the conversation</p>
           </div>
         )}
-
         {messages.map((msg) => {
           const isMe = msg.senderId === user?.uid;
           return (
-            <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-              <div
-                className={`max-w-xs lg:max-w-sm px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                  isMe
-                    ? "bg-violet-600 text-white rounded-br-sm"
-                    : "bg-neutral-800 text-neutral-100 rounded-bl-sm"
-                }`}
-              >
+            <div key={msg.id} className={`flex items-end gap-2 ${isMe ? "justify-end" : "justify-start"}`}>
+              {!isMe && <Avatar user={otherUser} size="xs" />}
+              <div className={`max-w-xs lg:max-w-sm px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                isMe
+                  ? "bg-violet-600 text-white rounded-br-sm"
+                  : "bg-neutral-800 text-neutral-100 rounded-bl-sm"
+              }`}>
                 <p className="break-words">{msg.text}</p>
-                <div className={`flex items-center justify-between gap-2 mt-1`}>
+                <div className="flex items-center justify-between gap-2 mt-1">
                   <p className={`text-xs ${isMe ? "text-violet-300" : "text-neutral-500"}`}>
                     {msg.createdAt
                       ? new Date(msg.createdAt).toLocaleString("en-US", {
@@ -141,9 +126,7 @@ export default function ChatPage() {
                       : ""}
                   </p>
                   {isMe && (
-                    <p className="text-xs text-violet-300">
-                      {msg.read ? "✓✓" : "✓"}
-                    </p>
+                    <p className="text-xs text-violet-300">{msg.read ? "✓✓" : "✓"}</p>
                   )}
                 </div>
               </div>
@@ -153,7 +136,6 @@ export default function ChatPage() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Error */}
       {error && (
         <div className="px-4 py-2 bg-red-500/10 border-t border-red-500/20">
           <p className="text-red-400 text-xs">{error}</p>
@@ -176,7 +158,7 @@ export default function ChatPage() {
         <button
           type="submit"
           disabled={!text.trim() || sending}
-          className="bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white p-2.5 rounded-xl transition"
+          className="bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white p-2.5 rounded-xl transition shrink-0"
         >
           {sending ? (
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

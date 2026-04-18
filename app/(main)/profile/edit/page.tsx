@@ -1,16 +1,17 @@
-// app/(main)/profile/edit/page.tsx
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { getUserById, updateUserProfile, uploadProfilePhoto } from "@/lib/users";
 import { User } from "@/types";
+import Avatar from "@/components/Avatar";
 import { useRouter } from "next/navigation";
+
+export const dynamic = "force-dynamic";
 
 export default function EditProfilePage() {
   const { user } = useAuth();
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
-
   const [profile, setProfile] = useState<Partial<User>>({});
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
@@ -18,6 +19,7 @@ export default function EditProfilePage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!user) return;
@@ -35,39 +37,53 @@ export default function EditProfilePage() {
     e.preventDefault();
     if (!user) return;
     setSaving(true);
-    await updateUserProfile(user.uid, { displayName, username: username.toLowerCase(), bio });
-    setSaving(false);
-    setSuccess(true);
-    setTimeout(() => setSuccess(false), 2000);
+    setError("");
+    try {
+      await updateUserProfile(user.uid, {
+        displayName,
+        username: username.toLowerCase(),
+        bio,
+      });
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2000);
+    } catch (err: any) {
+      setError(err.message || "Failed to save");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !user) return;
     setUploading(true);
-    const url = await uploadProfilePhoto(user.uid, file);
-    setProfile((p) => ({ ...p, photoURL: url }));
-    setUploading(false);
+    try {
+      const url = await uploadProfilePhoto(user.uid, file);
+      setProfile((p) => ({ ...p, photoURL: url }));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUploading(false);
+    }
   }
+
+  const previewUser = {
+    ...profile,
+    displayName,
+    username,
+  } as User;
 
   return (
     <div className="max-w-md mx-auto py-4 md:py-8 px-3 md:px-4">
       <h1 className="text-xl font-bold text-white mb-6">Edit Profile</h1>
 
       <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
-        {/* Avatar upload */}
+        {/* Avatar */}
         <div className="flex items-center gap-4 mb-6">
-          <div
-            onClick={() => fileRef.current?.click()}
-            className="w-16 h-16 rounded-full bg-violet-600 flex items-center justify-center text-2xl font-bold overflow-hidden cursor-pointer hover:opacity-80 transition relative"
-          >
-            {profile.photoURL ? (
-              <img src={profile.photoURL} alt="" className="w-full h-full object-cover" />
-            ) : (
-              displayName?.[0]?.toUpperCase() || "?"
-            )}
+          <div className="relative">
+            <Avatar user={previewUser} size="xl" />
             {uploading && (
-              <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center">
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               </div>
             )}
@@ -75,11 +91,25 @@ export default function EditProfilePage() {
           <div>
             <button
               onClick={() => fileRef.current?.click()}
-              className="text-sm text-violet-400 hover:text-violet-300 transition font-medium"
+              className="text-sm text-violet-400 hover:text-violet-300 transition font-medium block"
             >
-              Change photo
+              Upload custom photo
             </button>
-            <p className="text-xs text-neutral-500 mt-0.5">Click avatar to upload</p>
+            <p className="text-xs text-neutral-500 mt-1">
+              Or keep your generated anime avatar
+            </p>
+            {profile.photoURL && (
+              <button
+                onClick={() => {
+                  if (!user) return;
+                  updateUserProfile(user.uid, {});
+                  setProfile((p) => ({ ...p, photoURL: "" }));
+                }}
+                className="text-xs text-red-400 hover:text-red-300 transition mt-1 block"
+              >
+                Remove photo
+              </button>
+            )}
           </div>
           <input
             ref={fileRef}
@@ -93,11 +123,18 @@ export default function EditProfilePage() {
         <form onSubmit={handleSave} className="space-y-4">
           {success && (
             <div className="bg-green-500/10 border border-green-500/30 rounded-xl px-4 py-3 text-green-400 text-sm">
-              Profile saved!
+              ✅ Profile saved!
+            </div>
+          )}
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm">
+              {error}
             </div>
           )}
           <div>
-            <label className="block text-xs text-neutral-400 mb-1.5 uppercase tracking-wide">Display Name</label>
+            <label className="block text-xs text-neutral-400 mb-1.5 uppercase tracking-wide">
+              Display Name
+            </label>
             <input
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
@@ -106,7 +143,9 @@ export default function EditProfilePage() {
             />
           </div>
           <div>
-            <label className="block text-xs text-neutral-400 mb-1.5 uppercase tracking-wide">Username</label>
+            <label className="block text-xs text-neutral-400 mb-1.5 uppercase tracking-wide">
+              Username
+            </label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 text-sm">@</span>
               <input
@@ -118,7 +157,9 @@ export default function EditProfilePage() {
             </div>
           </div>
           <div>
-            <label className="block text-xs text-neutral-400 mb-1.5 uppercase tracking-wide">Bio</label>
+            <label className="block text-xs text-neutral-400 mb-1.5 uppercase tracking-wide">
+              Bio
+            </label>
             <textarea
               value={bio}
               onChange={(e) => setBio(e.target.value)}
