@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_ROUTES = ["/login", "/register"];
-
 const securityHeaders = {
   "X-Frame-Options": "DENY",
   "X-Content-Type-Options": "nosniff",
@@ -12,30 +10,13 @@ const securityHeaders = {
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
 };
 
-// ← must be named "proxy" now, not "middleware"
 export function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  const isPublic = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
-
   const response = NextResponse.next();
 
+  // Just add security headers, let client-side handle auth
   Object.entries(securityHeaders).forEach(([key, value]) => {
     response.headers.set(key, value);
   });
-
-  const token =
-    request.cookies.get("__session")?.value ||
-    request.cookies.get("firebase-token")?.value;
-
-  if (!isPublic && !token) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  if (isPublic && token) {
-    return NextResponse.redirect(new URL("/feed", request.url));
-  }
 
   return response;
 }
