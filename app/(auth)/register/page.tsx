@@ -66,7 +66,7 @@ export default function RegisterPage() {
               onChange={(e) => setDisplayName(e.target.value)}
               required
               className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-violet-500 transition"
-              placeholder="John Doe"
+              placeholder=""
             />
           </div>
           <div>
@@ -80,7 +80,7 @@ export default function RegisterPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-8 pr-4 py-3 text-white text-sm focus:outline-none focus:border-violet-500 transition"
-                placeholder="johndoe"
+                placeholder=""
               />
             </div>
           </div>
